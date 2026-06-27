@@ -1,0 +1,161 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum Role {
+  STUDENT
+  TEACHER
+}
+
+enum Level {
+  SIXIEME
+  CINQUIEME
+  QUATRIEME
+  TROISIEME
+  SECONDE
+  PREMIERE
+  TERMINALE
+  BAC_MATHS
+  BAC_SCIENCES
+  BAC_INFO
+}
+
+enum DayOfWeek {
+  LUNDI
+  MARDI
+  MERCREDI
+  JEUDI
+  VENDREDI
+  SAMEDI
+  DIMANCHE
+}
+
+enum SessionStatus {
+  REQUESTED
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+// ─── Users ────────────────────────────────────────────────────────────────────
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String?
+  name      String
+  role      Role
+  image     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  teacherProfile TeacherProfile?
+  studentProfile StudentProfile?
+  reviews        Review[]
+}
+
+model TeacherProfile {
+  id          String  @id @default(cuid())
+  userId      String  @unique
+  headline    String?
+  bio         String?
+  city        String?
+  experience  Int?
+  hourlyRate  Float?
+  ratingAvg   Float   @default(0)
+  reviewCount Int     @default(0)
+
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subjects       TeacherSubject[]
+  availabilities Availability[]
+  sessions       Session[]
+  reviews        Review[]
+}
+
+model StudentProfile {
+  id     String @id @default(cuid())
+  userId String @unique
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessions Session[]
+}
+
+// ─── Subjects & Levels ────────────────────────────────────────────────────────
+
+model Subject {
+  id    String @id @default(cuid())
+  name  String @unique
+  color String @default("#6366f1")
+
+  teacherSubjects TeacherSubject[]
+  sessions        Session[]
+}
+
+model TeacherSubject {
+  id               String @id @default(cuid())
+  teacherProfileId String
+  subjectId        String
+  level            Level
+
+  teacherProfile TeacherProfile @relation(fields: [teacherProfileId], references: [id], onDelete: Cascade)
+  subject        Subject        @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@unique([teacherProfileId, subjectId, level])
+}
+
+// ─── Availability ─────────────────────────────────────────────────────────────
+
+model Availability {
+  id               String    @id @default(cuid())
+  teacherProfileId String
+  dayOfWeek        DayOfWeek
+  startTime        String
+  endTime          String
+
+  teacherProfile TeacherProfile @relation(fields: [teacherProfileId], references: [id], onDelete: Cascade)
+}
+
+// ─── Sessions ─────────────────────────────────────────────────────────────────
+
+model Session {
+  id               String        @id @default(cuid())
+  teacherProfileId String
+  studentProfileId String
+  subjectId        String
+  level            Level
+  date             DateTime
+  startTime        String
+  endTime          String
+  status           SessionStatus @default(REQUESTED)
+  notes            String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  teacherProfile TeacherProfile @relation(fields: [teacherProfileId], references: [id])
+  studentProfile StudentProfile @relation(fields: [studentProfileId], references: [id])
+  subject        Subject        @relation(fields: [subjectId], references: [id])
+  review         Review?
+}
+
+// ─── Reviews ──────────────────────────────────────────────────────────────────
+
+model Review {
+  id               String   @id @default(cuid())
+  teacherProfileId String
+  studentId        String
+  sessionId        String   @unique
+  rating           Int
+  comment          String?
+  createdAt        DateTime @default(now())
+
+  teacherProfile TeacherProfile @relation(fields: [teacherProfileId], references: [id])
+  student        User           @relation(fields: [studentId], references: [id])
+  session        Session        @relation(fields: [sessionId], references: [id])
+}
